@@ -114,7 +114,7 @@ func getArrivalsHandler(c *gin.Context) {
 				if sec < 0 {
 					continue
 				}
-				mins := (sec + 59) / 60 // round up to whole minutes
+				mins := sec / 60 // round down to whole minutes
 				arrivals = append(arrivals, Arrival{
 					StopID:       *stopTimeUpdate.StopId,
 					RouteID:      routeID,
@@ -129,5 +129,21 @@ func getArrivalsHandler(c *gin.Context) {
         return arrivals[i].ArrivesInMin < arrivals[j].ArrivesInMin
     })
 
-	c.JSON(http.StatusOK, arrivals[:4])
+	const (
+		maxResults       = 4
+		minArrivesInMin  = 4
+	)
+
+	filtered := make([]Arrival, 0, maxResults)
+	for _, arrival := range arrivals {
+		if len(filtered) >= maxResults {
+			break
+		}
+		if arrival.ArrivesInMin <= minArrivesInMin {
+			continue
+		}
+		filtered = append(filtered, arrival)
+	}
+
+	c.JSON(http.StatusOK, filtered)
 }
