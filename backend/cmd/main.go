@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
@@ -19,71 +20,114 @@ const (
 
 type ISO8601Time string
 
-type Trip struct {
-	TripID      string      `json:"trip_id"`
-	RouteID     string      `json:"route_id"`
-	StopID      string      `json:"stop_id"`
-	ArrivalTime ISO8601Time `json:"arrival_time"`
-	Direction   Direction   `json:"direction"`
+type Arrival struct {
+    StopID          string    `json:"stop_id"`
+	RouteID         string    `json:"route_id"`
+    Direction       Direction `json:"direction"`
+	ArrivesInMin    int       `json:"arrives_in_min"`
 }
 
-const _mtaApiUrl = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs"
+const (
+	_mtaApiUrl = "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs"
+	apiVersion = "v1"
+)
+
+type DeviceConfig struct {
+	RouteID   string
+	StopID    string
+	Direction Direction
+}
+
+var deviceConfigs = map[string][]DeviceConfig{
+	"4061E9D8CBB0": {
+		{RouteID: "1", StopID: "120S", Direction: DirectionDowntown},
+		{RouteID: "2", StopID: "120S", Direction: DirectionDowntown},
+		{RouteID: "3", StopID: "120S", Direction: DirectionDowntown},
+	},
+}
 
 func main() {
 	router := gin.Default()
 
-	router.GET("/trips", getTripsHandler)
+	api := router.Group("/api/" + apiVersion)
+	api.GET("/devices/:device_id/arrivals", getArrivalsHandler)
 
 	if err := router.Run(":8080"); err != nil {
 		panic(err)
 	}
 }
 
-func getTripsHandler(c *gin.Context) {
-    resp, err := http.Get(_mtaApiUrl)
-    if err != nil {
-        c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch GTFS feed"})
-        return
-    }
-    defer resp.Body.Close()
+func getArrivalsHandler(c *gin.Context) {
+	deviceID := c.Param("device_id")
+	if deviceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "device_id is required"})
+		return
+	}
 
-    body, err := io.ReadAll(resp.Body)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read GTFS response body"})
-        return
-    }
+	cfgs, ok := deviceConfigs[deviceID]
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "unknown device_id"})
+		return
+	}
 
-    var feed gtfs.FeedMessage
-    if err := proto.Unmarshal(body, &feed); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode GTFS protobuf"})
-        return
-    }
+	resp, err := http.Get(_mtaApiUrl)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch GTFS feed"})
+		return
+	}
+	defer resp.Body.Close()
 
-    trips := make([]Trip, 0)
-    for _, entity := range feed.Entity {
-        if entity.TripUpdate == nil {
-            continue
-        }
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read GTFS response body"})
+		return
+	}
 
-        u := entity.TripUpdate
-        if u.Trip.RouteId != nil && *u.Trip.RouteId == "1" {
-            for _, stopTimeUpdate := range u.StopTimeUpdate {
-                if stopTimeUpdate.StopId != nil && *stopTimeUpdate.StopId == "120S" {
-                    if stopTimeUpdate.Arrival != nil && stopTimeUpdate.Arrival.Time != nil {
-                        t := time.Unix(*stopTimeUpdate.Arrival.Time, 0).UTC()
-                        isoString := t.Format(time.RFC3339)
-                        trips = append(trips, Trip{
-                            TripID:      *u.Trip.TripId,
-                            RouteID:     *u.Trip.RouteId,
-                            StopID:      *stopTimeUpdate.StopId,
-                            ArrivalTime: ISO8601Time(isoString),
-                            Direction:   DirectionDowntown,
-                        })
-                    }
-                }
-            }
-        }
-    }
+	var feed gtfs.FeedMessage
+	if err := proto.Unmarshal(body, &feed); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode GTFS protobuf"})
+		return
+	}
 
-    c.JSON(http.StatusOK, trips)
+	now := time.Now()
+	arrivals := make([]Arrival, 0)
+	for _, entity := range feed.Entity {
+		u := entity.TripUpdate
+		if u == nil || u.Trip == nil || u.Trip.RouteId == nil {
+			continue
+		}
+		routeID := *u.Trip.RouteId
+
+		for _, cfg := range cfgs {
+			if routeID != cfg.RouteID {
+				continue
+			}
+			for _, stopTimeUpdate := range u.StopTimeUpdate {
+				if stopTimeUpdate.StopId == nil || *stopTimeUpdate.StopId != cfg.StopID {
+					continue
+				}
+				if stopTimeUpdate.Arrival == nil || stopTimeUpdate.Arrival.Time == nil {
+					continue
+				}
+				arrival := time.Unix(*stopTimeUpdate.Arrival.Time, 0)
+				sec := int(arrival.Sub(now).Seconds())
+				if sec < 0 {
+					continue
+				}
+				mins := (sec + 59) / 60 // round up to whole minutes
+				arrivals = append(arrivals, Arrival{
+					StopID:       *stopTimeUpdate.StopId,
+					RouteID:      routeID,
+					Direction:    cfg.Direction,
+					ArrivesInMin: mins,
+				})
+			}
+		}
+	}
+
+    sort.SliceStable(arrivals, func(i, j int) bool {
+        return arrivals[i].ArrivesInMin < arrivals[j].ArrivesInMin
+    })
+
+	c.JSON(http.StatusOK, arrivals[:4])
 }
