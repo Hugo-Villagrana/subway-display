@@ -124,18 +124,6 @@ void setup() {
     Serial.println(WiFi.localIP());
 }
 
-uint8_t TRAIN_1[8] = {
-    0b00111100,
-    0b01111110,
-    0b11100111,
-    0b11000111,
-    0b11000111,
-    0b11100111,
-    0b01111110,
-    0b00111100
-};
-
-
 void rotate90Right(const uint8_t in[8], uint8_t out[8]) {
     for (int col = 0; col < 8; col++) {
         out[col] = 0;
@@ -159,67 +147,88 @@ void drawRouteGlyph(uint8_t module, const char* routeId) {
     }
 }
 
+void setTextOffset(int startModule, const char* text) {
+    for (int m = startModule; m < NUM_MODULES && text[m - startModule] != '\0'; m++) {
+        char c = text[m - startModule];
+        int base = c * FONT_CHAR_WIDTH;
+
+        int xOffset = 2;
+
+        for (int col = 0; col < FONT_CHAR_WIDTH; col++) {
+            display[m][col + xOffset] =
+                font_data[base + (FONT_CHAR_WIDTH - 1 - col)];
+        }
+    }
+}
+
 void loop() {
     HTTPClient http;
     http.begin(String("http://192.168.1.163:8080/api/v1/devices/") + deviceId + "/arrivals");
     int code = http.GET();
-    // if (code == 200) {
-    //     String payload = http.getString();
+    if (code == 200) {
+        String payload = http.getString();
 
-    //     DynamicJsonDocument doc(8192);
-    //     DeserializationError err = deserializeJson(doc, payload);
-    //     if (err) {
-    //         Serial.print("JSON parse error: ");
-    //         Serial.println(err.c_str());
-    //         http.end();
-    //         delay(5000);
-    //         return;
-    //     }
+        DynamicJsonDocument doc(8192);
+        DeserializationError err = deserializeJson(doc, payload);
+        if (err) {
+            Serial.print("JSON parse error: ");
+            Serial.println(err.c_str());
+            http.end();
+            delay(5000);
+            return;
+        }
 
-    //     JsonArray arrivals = doc.as<JsonArray>();
-    //     int idx = 0;
-    //     for (JsonObject arrival : arrivals) {
-    //         const char* stopId = arrival["stop_id"];
-    //         const char* routeId = arrival["route_id"];
-    //         const char* direction = arrival["direction"];
-    //         const int arrivesInMin = arrival["arrives_in_min"];
-    //         Serial.print("Idx ");
-    //         Serial.print(idx);
-    //         Serial.print(": Stop ");
-    //         Serial.print(stopId);
-    //         Serial.print(" on ");
-    //         Serial.print(routeId);
-    //         Serial.print(" in ");
-    //         Serial.print(arrivesInMin);
-    //         Serial.println(" minutes");
+        JsonArray arrivals = doc.as<JsonArray>();
+        int idx = 0;
+        for (JsonObject arrival : arrivals) {
+            const char* stopId = arrival["stop_id"];
+            const char* routeId = arrival["route_id"];
+            const char* direction = arrival["direction"];
+            const int arrivesInMin = arrival["arrives_in_min"];
+            Serial.print("Idx ");
+            Serial.print(idx);
+            Serial.print(": Stop ");
+            Serial.print(stopId);
+            Serial.print(" on ");
+            Serial.print(routeId);
+            Serial.print(" in ");
+            Serial.print(arrivesInMin);
+            Serial.println(" minutes");
 
-    //         char text[16];
-    //         snprintf(text, sizeof(text), "%d.%s%dmin", idx, routeId, arrivesInMin);
-    //         setText(text);
+            char text[16];
+            // snprintf(text, sizeof(text), "%d. ", idx+1);
+            // setTextOffset(0, text);
 
-    //         render();
-    //         delay(4000);
-    //         for (int i = 0; i < 8; i++) {
-    //             shiftUp();
-    //             render();
-    //             delay(150);
-    //         }
-    //         idx++;
-    //     }
-    // }
+            drawRouteGlyph(0, routeId);
+            snprintf(text, sizeof(text), "%2dmin", arrivesInMin);
+            setTextOffset(2, text);
+
+            render();
+            delay(4000);
+            for (int i = 0; i < 8; i++) {
+                shiftUp();
+                render();
+                delay(150);
+            }
+            idx++;
+        }
+    }
 
     http.end();
     delay(500);
 
-    drawRouteGlyph(0, "1");
-    render();
-    delay(4000);
+    // drawRouteGlyph(0, "1");
+    // drawRouteGlyph(1, "2");
+    // drawRouteGlyph(3, "3");
+    // // setText("1 2 3");
+    // render();
+    // delay(4000);
 
-    for (int i = 0; i < 8; i++) {
-        shiftUp();
-        render();
-        delay(150);
-    }
+    // for (int i = 0; i < 8; i++) {
+    //     shiftUp();
+    //     render();
+    //     delay(150);
+    // }
 
     // drawRouteGlyph(0, "2");
     // render();
