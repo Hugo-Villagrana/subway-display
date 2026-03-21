@@ -1,9 +1,12 @@
 #include <SPI.h>
+#include <DNSServer.h>
 #include "font.h"
 #include "glyph.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <WebServer.h>
+#include <Preferences.h>
 
 #define CS 5
 #define NUM_MODULES 8
@@ -86,44 +89,6 @@ void render() {
     }
 }
 
-static char deviceId[13];
-
-void setup() {
-    SPI.begin(18, -1, 23, CS);
-    pinMode(CS, OUTPUT);
-    digitalWrite(CS, HIGH);
-
-    delay(100);
-
-    // MAX7219 init
-    sendCmd(0x0F, 0x00);
-    sendCmd(0x0C, 0x01);
-    sendCmd(0x0B, 0x07);
-    sendCmd(0x0A, 0x00);
-    sendCmd(0x09, 0x00);
-
-    // Device ID
-    uint64_t chipId = ESP.getEfuseMac();
-    sprintf(deviceId, "%04X%08X", (uint16_t)(chipId >> 32), (uint32_t)chipId);
-    Serial.print("Device ID: ");
-    Serial.println(deviceId);
-
-
-    // Setup WiFi
-    char* ssid = "Verizon_BT7Z6C";
-    char* password = "ray6editor3isle";
-
-    Serial.begin(115200);
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print("...");
-    }
-
-    Serial.println("\nConnected");
-    Serial.println(WiFi.localIP());
-}
-
 void rotate90Right(const uint8_t in[8], uint8_t out[8]) {
     for (int col = 0; col < 8; col++) {
         out[col] = 0;
@@ -161,7 +126,123 @@ void setTextOffset(int startModule, const char* text) {
     }
 }
 
+WebServer server(80);
+
+void handleRoot() {
+    server.send(200, "text/html", R"rawliteral(
+        <form action="/save">
+            SSID: <input type="text" name="ssid"><br>
+            Password: <input type="password" name="password"><br>
+            <input type="submit" value="Save">
+        </form>
+        )rawliteral");
+}
+
+void handleSave() {
+    String ssid = server.arg("ssid");
+    String password = server.arg("password");
+    saveWiFi(ssid, password);
+
+    server.send(200, "text/html", "Saved");
+    delay(1000);
+    ESP.restart();
+}
+
+DNSServer dnsServer;
+const byte DNS_PORT = 53;
+void startAPMode() {
+    Serial.println("Starting AP mode");
+
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("Subway-Line-Display");
+
+    IPAddress ip = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(ip);
+
+    dnsServer.start(DNS_PORT, "*", ip);
+
+    server.onNotFound([]() {
+        server.sendHeader("Location", "/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    server.on("/", handleRoot);
+    server.on("/save", handleSave);
+    server.begin();
+}
+
+Preferences preferences;
+void saveWiFi(String ssid, String password) {
+    preferences.begin("wifi", false);
+    preferences.putString("ssid", ssid);
+    preferences.putString("password", password);
+    preferences.end();
+}
+
+String getSSID() {
+    preferences.begin("wifi", true);
+    String ssid = preferences.getString("ssid", "");
+    preferences.end();
+
+    return ssid;
+}
+
+String getPassword() {
+    preferences.begin("wifi", true);
+    String password = preferences.getString("password", "");
+    preferences.end();
+    return password;
+}
+
+static char deviceId[13];
+void setup() {
+    Serial.begin(115200);
+    SPI.begin(18, -1, 23, CS);
+    pinMode(CS, OUTPUT);
+    digitalWrite(CS, HIGH);
+
+    delay(100);
+
+    // MAX7219 init
+    sendCmd(0x0F, 0x00);
+    sendCmd(0x0C, 0x01);
+    sendCmd(0x0B, 0x07);
+    sendCmd(0x0A, 0x00);
+    sendCmd(0x09, 0x00);
+
+    // Device ID
+    uint64_t chipId = ESP.getEfuseMac();
+    sprintf(deviceId, "%04X%08X", (uint16_t)(chipId >> 32), (uint32_t)chipId);
+    Serial.print("Device ID: ");
+    Serial.println(deviceId);
+
+
+    // Setup WiFi
+    String ssid = getSSID();
+    if (ssid.isEmpty()) {
+        startAPMode();
+        return;
+    } 
+
+    WiFi.begin(ssid.c_str(), getPassword().c_str());
+    if (WiFi.waitForConnectResult() == WL_CONNECTED) {
+        Serial.print("Connected to WiFi: ");
+        Serial.println(WiFi.SSID());
+    } else {
+        Serial.println("Failed to connect. Starting AP mode...");
+        startAPMode();
+    }
+}
+
 void loop() {
+    dnsServer.processNextRequest();
+    server.handleClient();
+    delay(1000);
+    if (WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+
     HTTPClient http;
     http.begin(String("http://192.168.1.163:8080/api/v1/devices/") + deviceId + "/arrivals");
     int code = http.GET();
@@ -216,41 +297,4 @@ void loop() {
 
     http.end();
     delay(500);
-
-    // drawRouteGlyph(0, "1");
-    // drawRouteGlyph(1, "2");
-    // drawRouteGlyph(3, "3");
-    // // setText("1 2 3");
-    // render();
-    // delay(4000);
-
-    // for (int i = 0; i < 8; i++) {
-    //     shiftUp();
-    //     render();
-    //     delay(150);
-    // }
-
-    // drawRouteGlyph(0, "2");
-    // render();
-    // delay(4000);
-
-    // drawRouteGlyph(0, "3");
-    // render();
-    // delay(4000);
-
-    // for (int i = 0; i < 8; i++) {
-    //     shiftUp();
-    //     render();
-    //     delay(150);
-    // }
-
-    // setText("3ex 5min");
-    // render();
-    // delay(4000);
-
-    // for (int i = 0; i < 8; i++) {
-    //     shiftUp();
-    //     render();
-    //     delay(150);
-    // }
 }
