@@ -18,8 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type ISO8601Time string
-
 type handler struct {
 	logger *zap.Logger
 }
@@ -88,12 +86,12 @@ func (h *handler) getArrivalsHandler(c *gin.Context, db *pgdb.DB) {
 	}
 
 	resp, err := http.Get(_mtaApiUrl)
-	defer resp.Body.Close()
 	if err != nil {
 		sugar.Errorw("failed to fetch GTFS feed", "error", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch GTFS feed"})
 		return
 	}
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -126,7 +124,11 @@ func (h *handler) getArrivalsHandler(c *gin.Context, db *pgdb.DB) {
 			}
 			for _, stopTimeUpdate := range u.StopTimeUpdate {
 				if stopTimeUpdate.StopId == nil || *stopTimeUpdate.StopId != cfg.StopID {
-					sugar.Debugw("skipping stop", "stop_id", *stopTimeUpdate.StopId, "cfg_stop_id", cfg.StopID)
+					var stopID string
+					if stopTimeUpdate.StopId != nil {
+						stopID = *stopTimeUpdate.StopId
+					}
+					sugar.Debugw("skipping stop", "stop_id", stopID, "cfg_stop_id", cfg.StopID)
 					continue
 				}
 				if stopTimeUpdate.Arrival == nil || stopTimeUpdate.Arrival.Time == nil {
