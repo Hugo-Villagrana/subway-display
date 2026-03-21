@@ -163,8 +163,7 @@ void startAPMode() {
     dnsServer.start(DNS_PORT, "*", ip);
 
     server.onNotFound([]() {
-        server.sendHeader("Location", "/", true);
-        server.send(302, "text/plain", "");
+        handleRoot();
     });
 
     server.on("/", handleRoot);
