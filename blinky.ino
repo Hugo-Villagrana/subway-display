@@ -244,7 +244,7 @@ void loop() {
     }
 
     HTTPClient http;
-    http.begin(String("http://192.168.1.163:8080/api/v1/devices/") + deviceId + "/arrivals");
+    http.begin(String("https://backend-damp-snowflake-3731.fly.dev/api/v1/devices/") + deviceId + "/arrivals");
     int code = http.GET();
     if (code == 200) {
         String payload = http.getString();
