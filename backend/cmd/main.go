@@ -13,7 +13,7 @@ import (
 	"github.com/Hugo-Villagrana/display/internal/device"
 	"github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
@@ -44,12 +44,12 @@ func main() {
 		sugar.Fatal("DATABASE_URI is not set")
 	}
 
-	conn, err := pgx.Connect(context.Background(), dbURI)
+	pool, err := pgxpool.New(context.Background(), dbURI)
 	if err != nil {
 		sugar.Fatalw("failed to connect to database", "error", err)
 	}
-	defer conn.Close(context.Background())
-	db := pgdb.NewDB(conn)
+	defer pool.Close()
+	db := pgdb.NewDB(pool)
 
 	router := gin.Default()
 
