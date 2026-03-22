@@ -126,8 +126,11 @@ export function RouteViewer({ configs }: RouteViewerProps) {
 
             <form
               action={async (formData) => {
-                await createDeviceConfig(formData)
-                router.refresh()
+                const resp = await createDeviceConfig(formData)
+                console.log("createDeviceConfig response", resp)
+                setOpen(false)
+                setSelectedStation(null)
+                setSelectedRoute(null)
               }}
               method="POST"
             >
@@ -220,16 +223,12 @@ export function RouteViewer({ configs }: RouteViewerProps) {
                     </Button>
                   }
                 />
-                <DialogClose
-                  render={
-                    <Button
-                      type="submit"
-                      disabled={!selectedStation || !selectedRoute}
-                    >
-                      Save changes
-                    </Button>
-                  }
-                />
+                <Button
+                  type="submit"
+                  disabled={!selectedStation || !selectedRoute}
+                >
+                  Save changes
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -315,7 +314,6 @@ export function RouteViewer({ configs }: RouteViewerProps) {
                                   variant="destructive"
                                   onClick={async () => {
                                     await deleteDeviceConfig(c.id)
-                                    router.refresh()
                                   }}
                                 >
                                   Delete
