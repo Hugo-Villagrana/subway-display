@@ -9,6 +9,7 @@
 #include <Preferences.h>
 #include "esp_https_ota.h"
 #include "esp_ota_ops.h"
+#include "esp_crt_bundle.h"
 
 #define CS 5
 #define NUM_MODULES 8
@@ -201,8 +202,15 @@ String getPassword() {
 }
 
 void performOTA(const char* url) {
-    esp_http_client_config_t http_config = { .url = url };
-    esp_https_ota_config_t ota_config = { .http_config = &http_config };
+    esp_http_client_config_t http_config = {
+        .url = url,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+    };
+    
+    esp_https_ota_config_t ota_config = {
+        .http_config = &http_config,
+    };
+    
     esp_err_t ret = esp_https_ota(&ota_config);
 
     if (ret != ESP_OK) {
@@ -311,7 +319,7 @@ void loop() {
         preferences.end();
 
         bool installFirmware = strcmp(FIRMWARE_VERSION, latestVersion) != 0 && failedVersion != latestVersion;
-        if (installFirmware) {
+        // if (installFirmware) {
             Serial.println("Firmware is out of date. Performing OTA...");
 
             preferences.begin(FIRMWARE_PREF_NAMESPACE, false);
@@ -319,7 +327,7 @@ void loop() {
             preferences.end();
 
             performOTA(url);
-        }
+        // }
     }
     http.end();
 
