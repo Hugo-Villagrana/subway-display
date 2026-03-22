@@ -1,6 +1,20 @@
 "use client"
 
-import { Trash2 } from "lucide-react"
+import { Button } from "@workspace/ui/components/button"
+import { Field, FieldGroup } from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@workspace/ui/components/dialog"
+import { PlusIcon, Trash2 } from "lucide-react"
 import Image from "next/image"
 
 export type DeviceConfig = {
@@ -28,7 +42,45 @@ function subwayIconSrc(routeId: string): string | null {
 export function RouteViewer({ configs }: RouteViewerProps) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <h1 className="text-lg font-medium">Route viewer</h1>
+      <div className="flex w-full items-center justify-between gap-2">
+        <h1 className="text-lg font-medium">Current Routes</h1>
+        <Dialog>
+          <DialogTrigger
+            render={
+              <Button variant="outline">
+                <PlusIcon className="size-4 shrink-0" aria-hidden />
+                <span>Add Route</span>
+              </Button>
+            }
+          />
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Edit profile</DialogTitle>
+              <DialogDescription>
+                Add a new route to your device.
+              </DialogDescription>
+            </DialogHeader>
+            <FieldGroup>
+              <Field>
+                <Label htmlFor="name-1">Name</Label>
+                <Input id="name-1" name="name" defaultValue="Pedro Duarte" />
+              </Field>
+              <Field>
+                <Label htmlFor="username-1">Username</Label>
+                <Input
+                  id="username-1"
+                  name="username"
+                  defaultValue="@peduarte"
+                />
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline">Cancel</Button>} />
+              <Button type="submit">Save changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <div className="-mx-1 overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[20rem] border-collapse text-left text-sm">
@@ -71,21 +123,47 @@ export function RouteViewer({ configs }: RouteViewerProps) {
                             className="size-5 shrink-0 object-contain"
                             unoptimized
                           />
-                        ) : null}
+                        ) : (
+                          <span className="text-xs">{c.routeId}</span>
+                        )}
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-xs">
+                    <td className="truncate px-3 py-2.5 font-mono text-xs">
                       {stopMap[c.stopId] || c.stopId}
                     </td>
                     <td className="px-3 py-2.5 capitalize">{c.direction}</td>
                     <td className="px-2 py-2">
-                      <button
-                        type="button"
-                        className="inline-flex size-11 items-center justify-center rounded-md text-red-900/75 dark:text-red-400/70"
-                        aria-label={`Delete configuration ${c.id}`}
-                      >
-                        <Trash2 className="size-4 shrink-0" aria-hidden />
-                      </button>
+                      <Dialog>
+                        <DialogTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="inline-flex items-center justify-center rounded-md text-red-900/75 dark:text-red-400/70"
+                            >
+                              <Trash2 className="size-4 shrink-0" aria-hidden />
+                            </Button>
+                          }
+                        />
+                        <DialogContent className="sm:max-w-xs">
+                          <DialogHeader>
+                            <DialogTitle>Delete Route</DialogTitle>
+                          </DialogHeader>
+                          <DialogDescription>
+                            Are you sure you want to delete this route?
+                          </DialogDescription>
+                          <DialogFooter className="gap-2">
+                            <DialogClose
+                              render={<Button variant="outline">Cancel</Button>}
+                            />
+                            <DialogClose
+                              render={
+                                <Button variant="destructive">Delete</Button>
+                              }
+                            />
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </td>
                   </tr>
                 )
