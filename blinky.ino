@@ -276,9 +276,6 @@ void loop() {
             Serial.println(" minutes");
 
             char text[16];
-            // snprintf(text, sizeof(text), "%d. ", idx+1);
-            // setTextOffset(0, text);
-
             drawRouteGlyph(0, routeId);
             snprintf(text, sizeof(text), "%2dmin", arrivesInMin);
             setTextOffset(2, text);
@@ -295,5 +292,4 @@ void loop() {
     }
 
     http.end();
-    delay(500);
 }
