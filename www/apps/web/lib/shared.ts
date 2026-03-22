@@ -1,1 +1,1 @@
-export const BACKEND_URL = process.env.WWW_BACKEND_URL ?? "http://0.0.0.0:8080"
+export const BACKEND_URL = "https://backend-damp-snowflake-3731.fly.dev"

@@ -8,7 +8,7 @@ export async function createDeviceConfig(formData: FormData) {
   const deviceId = formData.get("deviceId")
 
   const response = await fetch(
-    `${BACKEND_URL}/api/v1/devices/${deviceId}/configs`,
+    `${BACKEND_URL}/api/v1/devices/4061E9D8CBB0/configs`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -28,7 +28,7 @@ export async function createDeviceConfig(formData: FormData) {
 
 export async function deleteDeviceConfig(configId: string) {
   const response = await fetch(
-    `http://0.0.0.0:8080/api/v1/devices/configs/${configId}`,
+    `${BACKEND_URL}/api/v1/devices/configs/${configId}`,
     {
       method: "DELETE",
     }
