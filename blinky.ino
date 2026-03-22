@@ -15,7 +15,7 @@
 #define NUM_MODULES 8
 #define COLUMNS_PER_MODULE 8
 
-#define FIRMWARE_VERSION "0.0.4"
+#define FIRMWARE_VERSION "0.0.5"
 #define FIRMWARE_PREF_NAMESPACE "firmware"
 #define KEY_FAILED_VERSION "failed_version"
 
