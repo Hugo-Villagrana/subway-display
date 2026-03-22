@@ -15,7 +15,7 @@
 #define NUM_MODULES 8
 #define COLUMNS_PER_MODULE 8
 
-#define FIRMWARE_VERSION "0.0.2"
+#define FIRMWARE_VERSION "0.0.4"
 #define FIRMWARE_PREF_NAMESPACE "firmware"
 #define KEY_FAILED_VERSION "failed_version"
 
@@ -319,7 +319,7 @@ void loop() {
         preferences.end();
 
         bool installFirmware = strcmp(FIRMWARE_VERSION, latestVersion) != 0 && failedVersion != latestVersion;
-        // if (installFirmware) {
+        if (installFirmware) {
             Serial.println("Firmware is out of date. Performing OTA...");
 
             preferences.begin(FIRMWARE_PREF_NAMESPACE, false);
@@ -327,7 +327,7 @@ void loop() {
             preferences.end();
 
             performOTA(url);
-        // }
+        }
     }
     http.end();
 
@@ -382,6 +382,4 @@ void loop() {
     }
 
     http2.end();
-
-    delay(4000);
 }
