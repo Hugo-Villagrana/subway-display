@@ -1,4 +1,7 @@
+"use server"
+
 import { RouteViewer, type DeviceConfig } from "@/components/route-viewer"
+import { BACKEND_URL } from "@/lib/shared"
 
 type GetConfigResponseSchema = {
   id: string
@@ -10,7 +13,7 @@ type GetConfigResponseSchema = {
 
 async function getConfigs(deviceId: string): Promise<DeviceConfig[]> {
   const response = await fetch(
-    `http://0.0.0.0:8080/api/v1/devices/${deviceId}/configs`,
+    `${BACKEND_URL}/api/v1/devices/${deviceId}/configs`,
     {
       headers: {
         "Content-Type": "application/json",

@@ -1,6 +1,6 @@
 "use server"
 
-const BACKEND_URL = process.env.WWW_BACKEND_URL ?? "http://0.0.0.0:8080"
+import { BACKEND_URL } from "@/lib/shared"
 
 export async function createDeviceConfig(formData: FormData) {
   const station = formData.get("station")
