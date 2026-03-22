@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import {
 import { PlusIcon, Trash2 } from "lucide-react"
 import Image from "next/image"
 import { useState } from "react"
+import { createDeviceConfig, deleteDeviceConfig } from "@/app/api/device"
 
 export type DeviceConfig = {
   id: string
@@ -87,6 +89,8 @@ function subwayIconSrc(routeId: string): string | null {
 }
 
 export function RouteViewer({ configs }: RouteViewerProps) {
+  const router = useRouter()
+
   const [open, setOpen] = useState(false)
   const [selectedStation, setSelectedStation] = useState<string | null>()
   const [selectedRoute, setSelectedRoute] = useState<string | null>()
@@ -119,89 +123,115 @@ export function RouteViewer({ configs }: RouteViewerProps) {
                 Select a route to add to your device.
               </DialogDescription>
             </DialogHeader>
-            <FieldGroup>
-              <Field id="station">
-                <Label htmlFor="station">Station</Label>
-                <Select items={stations} onValueChange={setSelectedStation}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a station" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {stations.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>
-                          <span className="ml-2 truncate">{s.label}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field id="route">
-                <Label htmlFor="route">Route</Label>
-                <Select
-                  disabled={!selectedStation}
-                  items={stopToRouteMap[selectedStation ?? ""] ?? []}
-                  onValueChange={setSelectedRoute}
-                >
-                  <SelectTrigger className="w-full">
-                    {selectedRoute ? (
-                      <SelectValue>
-                        {subwayIconSrc(selectedRoute) && (
-                          <Image
-                            src={subwayIconSrc(selectedRoute ?? "") ?? ""}
-                            alt={selectedRoute ?? ""}
-                            width={20}
-                            height={20}
-                            className="size-5 shrink-0 object-contain"
-                            unoptimized
-                          />
-                        )}
-                        <span className="ml-2 truncate">
-                          {routes.find((r) => r.value === selectedRoute)?.label}
-                        </span>
-                      </SelectValue>
-                    ) : (
-                      <SelectValue placeholder="Select a route" />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {stopToRouteMap[selectedStation ?? ""]?.map((r) => (
-                        <SelectItem key={r.value} value={r.value}>
-                          {subwayIconSrc(r.value) && (
+
+            <form
+              action={async (formData) => {
+                await createDeviceConfig(formData)
+                router.refresh()
+              }}
+              method="POST"
+            >
+              <FieldGroup>
+                <Field id="station">
+                  <Label htmlFor="station">Station</Label>
+                  <Select items={stations} onValueChange={setSelectedStation}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a station" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {stations.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            <span className="ml-2 truncate">{s.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field id="route">
+                  <Label htmlFor="route">Route</Label>
+                  <Select
+                    disabled={!selectedStation}
+                    items={stopToRouteMap[selectedStation ?? ""] ?? []}
+                    onValueChange={setSelectedRoute}
+                  >
+                    <SelectTrigger className="w-full">
+                      {selectedRoute ? (
+                        <SelectValue>
+                          {subwayIconSrc(selectedRoute) && (
                             <Image
-                              src={subwayIconSrc(r.value) ?? ""}
-                              alt={r.label}
+                              src={subwayIconSrc(selectedRoute ?? "") ?? ""}
+                              alt={selectedRoute ?? ""}
                               width={20}
                               height={20}
                               className="size-5 shrink-0 object-contain"
                               unoptimized
                             />
                           )}
-                          <span className="ml-2 truncate">{r.label}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <DialogClose
-                render={
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedStation(null)}
-                  >
-                    Cancel
-                  </Button>
-                }
+                          <span className="ml-2 truncate">
+                            {
+                              routes.find((r) => r.value === selectedRoute)
+                                ?.label
+                            }
+                          </span>
+                        </SelectValue>
+                      ) : (
+                        <SelectValue placeholder="Select a route" />
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {stopToRouteMap[selectedStation ?? ""]?.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
+                            {subwayIconSrc(r.value) && (
+                              <Image
+                                src={subwayIconSrc(r.value) ?? ""}
+                                alt={r.label}
+                                width={20}
+                                height={20}
+                                className="size-5 shrink-0 object-contain"
+                                unoptimized
+                              />
+                            )}
+                            <span className="ml-2 truncate">{r.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+              <Input
+                type="hidden"
+                name="station"
+                value={selectedStation ?? ""}
               />
-              <Button type="submit" onClick={() => setSelectedStation(null)}>
-                Save changes
-              </Button>
-            </DialogFooter>
+              <Input type="hidden" name="route" value={selectedRoute ?? ""} />
+              <Input type="hidden" name="deviceId" value="4061E9D8CBB0" />
+              <DialogFooter>
+                <DialogClose
+                  render={
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedStation(null)}
+                    >
+                      Cancel
+                    </Button>
+                  }
+                />
+                <DialogClose
+                  render={
+                    <Button
+                      type="submit"
+                      disabled={!selectedStation || !selectedRoute}
+                    >
+                      Save changes
+                    </Button>
+                  }
+                />
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -281,7 +311,15 @@ export function RouteViewer({ configs }: RouteViewerProps) {
                             />
                             <DialogClose
                               render={
-                                <Button variant="destructive">Delete</Button>
+                                <Button
+                                  variant="destructive"
+                                  onClick={async () => {
+                                    await deleteDeviceConfig(c.id)
+                                    router.refresh()
+                                  }}
+                                >
+                                  Delete
+                                </Button>
                               }
                             />
                           </DialogFooter>
