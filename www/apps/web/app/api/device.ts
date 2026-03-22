@@ -3,15 +3,25 @@
 import { BACKEND_URL } from "@/lib/shared"
 import { revalidatePath } from "next/cache"
 
+type Direction = "downtown" | "uptown"
+
+function extractDirection(station: string): Direction {
+  if (station.endsWith("S")) {
+    return "downtown"
+  }
+  return "uptown"
+}
+
 export async function createDeviceConfig(formData: FormData) {
-  const station = formData.get("station")
-  const route = formData.get("route")
+  const station = formData.get("station") as string
+  const route = formData.get("route") as string
   const deviceId = "4061E9D8CBB0"
   console.log("server action called", {
     station,
     route,
     deviceId,
   })
+
   const response = await fetch(
     `${BACKEND_URL}/api/v1/devices/${deviceId}/configs`,
     {
@@ -19,7 +29,7 @@ export async function createDeviceConfig(formData: FormData) {
       body: JSON.stringify({
         stop_id: station,
         route_id: route,
-        direction: "downtown",
+        direction: extractDirection(station),
       }),
       cache: "no-store",
     }

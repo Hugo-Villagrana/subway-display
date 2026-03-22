@@ -1,12 +1,10 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import {
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
@@ -43,6 +41,9 @@ type RouteViewerProps = {
 
 const stopMap: Record<string, string> = {
   "120S": "96th Street",
+  "120N": "96th Street",
+  "625N": "96th Street",
+  "625S": "96th Street",
 }
 
 const routes = [
@@ -89,8 +90,6 @@ function subwayIconSrc(routeId: string): string | null {
 }
 
 export function RouteViewer({ configs }: RouteViewerProps) {
-  const router = useRouter()
-
   const [open, setOpen] = useState(false)
   const [selectedStation, setSelectedStation] = useState<string | null>()
   const [selectedRoute, setSelectedRoute] = useState<string | null>()
@@ -212,7 +211,7 @@ export function RouteViewer({ configs }: RouteViewerProps) {
               />
               <Input type="hidden" name="route" value={selectedRoute ?? ""} />
               <Input type="hidden" name="deviceId" value="4061E9D8CBB0" />
-              <DialogFooter>
+              <DialogFooter className="mt-2">
                 <DialogClose
                   render={
                     <Button
