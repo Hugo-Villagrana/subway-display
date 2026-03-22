@@ -7,10 +7,16 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include "esp_https_ota.h"
+#include "esp_ota_ops.h"
 
 #define CS 5
 #define NUM_MODULES 8
 #define COLUMNS_PER_MODULE 8
+
+#define FIRMWARE_VERSION "0.0.2"
+#define FIRMWARE_PREF_NAMESPACE "firmware"
+#define KEY_FAILED_VERSION "failed_version"
 
 // display[module][column]
 uint8_t display[NUM_MODULES][COLUMNS_PER_MODULE];
@@ -194,6 +200,20 @@ String getPassword() {
     return password;
 }
 
+void performOTA(const char* url) {
+    esp_http_client_config_t http_config = { .url = url };
+    esp_https_ota_config_t ota_config = { .http_config = &http_config };
+    esp_err_t ret = esp_https_ota(&ota_config);
+
+    if (ret != ESP_OK) {
+        Serial.printf("OTA failed: %s\n", esp_err_to_name(ret));
+        return;
+    }
+
+    Serial.println("OTA successful");
+    ESP.restart();
+}
+
 static char deviceId[13];
 void setup() {
     Serial.begin(115200);
@@ -232,7 +252,15 @@ void setup() {
         Serial.println("Failed to connect. Starting AP mode...");
         startAPMode();
     }
+
+    esp_ota_mark_app_valid_cancel_rollback();
+
+    preferences.begin(FIRMWARE_PREF_NAMESPACE, false);
+    preferences.remove(KEY_FAILED_VERSION);
+    preferences.end();
 }
+
+const char* MANIFEST_URL = "https://vpdubtsixxkxeapbpmeb.supabase.co/storage/v1/object/public/firmware/manifest.json";
 
 void loop() {
     dnsServer.processNextRequest();
@@ -243,22 +271,76 @@ void loop() {
     }
 
     HTTPClient http;
-    http.begin(String("https://backend-damp-snowflake-3731.fly.dev/api/v1/devices/") + deviceId + "/arrivals");
+    http.begin(MANIFEST_URL);
     int code = http.GET();
     if (code == 200) {
         String payload = http.getString();
-
-        DynamicJsonDocument doc(8192);
+        DynamicJsonDocument doc(1024);
         DeserializationError err = deserializeJson(doc, payload);
         if (err) {
-            Serial.print("JSON parse error: ");
+            Serial.print("manifest parse error: ");
             Serial.println(err.c_str());
             http.end();
             delay(5000);
             return;
         }
 
-        JsonArray arrivals = doc.as<JsonArray>();
+        JsonObject manifest = doc.as<JsonObject>();
+        const char* latestVersion = manifest["version"] | "";
+        const char* url = manifest["url"] | "";
+        const char* sha256 = manifest["sha256"];
+        const int size = manifest["size"];
+
+        if (strlen(latestVersion) == 0 || strlen(url) == 0) {
+            Serial.println("Manifest is invalid");
+            http.end();
+            return;
+        }
+
+        Serial.print("Manifest: ");
+        Serial.println(latestVersion);
+        Serial.print("URL: ");
+        Serial.println(url);
+        Serial.print("SHA256: ");
+        Serial.println(sha256);
+        Serial.print("Size: ");
+        Serial.println(size);
+
+        preferences.begin(FIRMWARE_PREF_NAMESPACE, true);
+        const String failedVersion = preferences.getString(KEY_FAILED_VERSION, "");
+        preferences.end();
+
+        bool installFirmware = strcmp(FIRMWARE_VERSION, latestVersion) != 0 && failedVersion != latestVersion;
+        if (installFirmware) {
+            Serial.println("Firmware is out of date. Performing OTA...");
+
+            preferences.begin(FIRMWARE_PREF_NAMESPACE, false);
+            preferences.putString(KEY_FAILED_VERSION, latestVersion);
+            preferences.end();
+
+            performOTA(url);
+        }
+    }
+    http.end();
+
+
+    HTTPClient http2;
+    http2.begin(String("https://backend-damp-snowflake-3731.fly.dev/api/v1/devices/") + deviceId + "/arrivals");
+    int code2 = http2.GET();
+    if (code2 == 200) {
+        String payload = http2.getString();
+
+        DynamicJsonDocument doc2(8192);
+        DeserializationError err = deserializeJson(doc2, payload);
+        if (err) {
+            Serial.print("JSON parse error: ");
+            Serial.println(err.c_str());
+            http2.end();
+            delay(5000);
+            return;
+        }
+
+        JsonArray arrivals = doc2.as<JsonArray>();
         int idx = 0;
         for (JsonObject arrival : arrivals) {
             const char* stopId = arrival["stop_id"];
@@ -291,5 +373,7 @@ void loop() {
         }
     }
 
-    http.end();
+    http2.end();
+
+    delay(4000);
 }
